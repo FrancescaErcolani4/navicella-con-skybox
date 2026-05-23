@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Navicella nello spazio cubo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="attenzione-overlay" class="overlay">
+        <div class="overlay-contenuto">
+            <h2>Progetto esame</h2>
+            <p>Francesca Ercolani, Dipartimento di Matematica UNIBO</p>
+            <p>Fondamenti di Computer Graphics, a.a 2025/2026</p>
+            <button onclick="chiudi()" class="overlay-btn">Visualizza progetto</button>
+        </div>
+    </div>
+    <button id="btn-open-panel" class="panel-open-button" type="button">Comandi</button>
+<div class="controls-panel">
+    <div class="panel-header">
+        <button id="btn-close-panel" class="panel-close-button" type="button">Nascondi controlli</button>
+    </div>
+    <p><br>Usa i comandi per pilotare la navicella e attivare il propulsore:</p>
+    <ul>
+        <li><span>Tasto per l'avvitamento:</span><strong>A</strong></li>
+        <li><span>Direzione di volo:</span><strong>Freccia ←/→</strong></li>
+        <li><span>Propulsore con fiamma attiva:</span><strong>Spacebar</strong></li>
+        <li><span></span><strong>Freccia ↑/↓</strong></li>
+        <li><span>Mouse:</span><strong>Click sinistro = propulsore</strong></li>
+        <li><span></span><strong>Click destro = avvitamento</strong></li>
+        <li><span></span><strong>Drag = controllo visuale 360°</strong></li>
+        <li><span>Mobile:</span><strong>Tap = propulsore</strong></li><bn>
+        <li><span></span><strong>Drag a due dita = controllo visuale 360°</strong></li>
+    </ul>
+    <div class="button-group">
+        <h3>Pilotaggio rapido</h3>
+        <div class="button-row">
+            <button id="btn-left" type="button">← Sinistra</button>
+            <button id="btn-right" type="button">Destra →</button>
+        </div>
+        <div class="button-row">
+            <button id="btn-thrust" type="button">Propulsore</button>
+            <button id="btn-roll" type="button">Avvitamento</button>
+        </div>
+        <div class="button-row">
+            <button id="btn-toggle-skeleton" type="button">Mostra scheletro</button>
+            <button id="btn-toggle-light" type="button">Spegni luce</button>
+        </div>
+        <div class="slider-group">
+            <label for="roll-speed-slider">Velocità avvitamento:</label>
+            <input id="roll-speed-slider" type="range" min="0.05" max="0.5" step="0.05" value="0.2">
+            <span id="roll-speed-value">0.20</span>
+        </div>
+        <div class="skybox-switch">
+            <button id="btn-skybox-default" type="button">Skybox 1</button>
+            <button id="btn-skybox-second" type="button">Skybox 2</button>
+            <button id="btn-skybox-third" type="button">Skybox 3</button>
+            <button id="btn-skybox-fourth" type="button">Skybox 4</button>
+        </div>
+    </div>
+</div>
+<canvas id="my-canvas"></canvas>
+
+    <script src="dat.gui.js"></script>
+    <script src="webgl-utils.js"></script>
+    <script src="m4.js"></script>
+    <script src="glm_utils.js"></script>
+    <script src="mesh_utils.js"></script>
+
+    //vertex GLSL shader per la skybox:
+    <script id="skybox-vertex" type="x-shader/x-vertex">
+        attribute vec4 a_position;
+        varying vec3 v_texCoord;
+        uniform mat4 u_viewDirectionProjectionInverse;
+
+        void main() {
+            v_texCoord = a_position.xyz;
+            vec4 pos = u_viewDirectionProjectionInverse * a_position;
+            gl_Position = pos;
+        }
+    </script>
+
+    //fragment GLSL shader per la skybox:
+    <script id="skybox-fragment" type="x-shader/x-fragment">
+        precision mediump float;
+        varying vec3 v_texCoord;
+        uniform samplerCube u_skybox;
+
+        void main() {
+            gl_FragColor = textureCube(u_skybox, v_texCoord);
+        }
+    </script>
+
+    <script src="app.js"></script>
+    </body>
+</html>
