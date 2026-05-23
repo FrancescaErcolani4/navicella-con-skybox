@@ -25,10 +25,10 @@ var programInfo = null; // Per Navicella e Fiamma
 var skyboxProgramInfo = null; // Per lo Skybox
 
 // Buffer Info oggetti
-var NavicellaBufferInfo = null; // Navicella
-var flameBufferInfo = null; // Fiamma
-var skyboxBufferInfo = null; // Lo skybox utilizza un buffer dedicato per la geometria del cubo
-var skyboxReady = false; // Flag per indicare quando lo skybox è pronto per essere disegnato
+var NavicellaBufferInfo = null;
+var flameBufferInfo = null;
+var skyboxBufferInfo = null;
+var skyboxReady = false; // Flag per inizializzare lo skybox solo dopo che tutte le texture sono state caricate
 
 var diffuseTexture = null; // Texture principale per la navicella (caricata dal file .mtl)
 var whiteTexture = null; // Texture bianca di fallback per oggetti senza UV
@@ -246,9 +246,8 @@ function createSolidTexture(color) {
   return texture;
 }
 
-//NOTE - 'loadTexture' fa lo stesso lavoro di 'createSolidTexture' per creare una texture di
-// default (bianca) da utilizzare come placeholder fino a quando l'immagine non è caricata, inoltre
-// gestisce il caricamento asincrono di un'immagine da un URL specificato. Imposta i parametri di filtraggio e wrapping in modo appropriato, e aggiorna la texture con l'immagine una volta che è stata caricata, permettendo di visualizzare correttamente la texture anche su superfici senza UV.
+//NOTE - 'loadTexture' fa lo stesso lavoro di 'createSolidTexture', in più
+// gestisce il caricamento asincrono di un'immagine da un URL specificato
 function loadTexture(url) {
   var texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -901,7 +900,7 @@ function initInterface() {
       }
     });
   }
-  
+  // Listener per i bottoni di cambio skybox
   if (btnSkyboxToggle) btnSkyboxToggle.addEventListener("click", toggleSkybox);
   if (btnSkyboxDefault) btnSkyboxDefault.addEventListener("click", function() { switchSkybox('default'); });
   if (btnSkyboxSecond) btnSkyboxSecond.addEventListener("click", function() { switchSkybox('second'); });
@@ -909,11 +908,13 @@ function initInterface() {
   if (btnSkyboxFourth) btnSkyboxFourth.addEventListener("click", function() { switchSkybox('fourth'); });
   if (btnLight) btnLight.addEventListener('click', toggleLight);
 
+  // Listener per i bottoni di apertura/chiusura del pannello dei controlli
   var btnClosePanel = document.getElementById("btn-close-panel");
   var btnOpenPanel = document.getElementById("btn-open-panel");
   if (btnClosePanel) btnClosePanel.addEventListener("click", toggleControlsPanel);
   if (btnOpenPanel) btnOpenPanel.addEventListener("click", toggleControlsPanel);
 
+  // Impostazione iniziale dello stato dei bottoni e del pannello dei controlli
   setSkyboxButtonState('btn-skybox-default');
   updateToggleButtons();
   updateStatus();
@@ -934,9 +935,11 @@ canvas.addEventListener("mousedown", function(e) {
   }
 });
 
+// Rilasciare il mouse o uscire dal canvas interrompe il drag della visuale
 canvas.addEventListener("mouseup", function() { drag = false; });
 canvas.addEventListener("mouseleave", function() { drag = false; });
 
+// Muovere il mouse mentre si tiene premuto il click sinistro ruota la visuale intorno alla navicella
 canvas.addEventListener("mousemove", function(e) {
   if (!drag) return;
   
