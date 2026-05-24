@@ -72,6 +72,15 @@ var barrelRollSpeed = 0.2; // Velocità di rotazione per l'avvitamento (più alt
 var skyboxRotation = 0; // Angolo di rotazione dello skybox (in radianti) per creare un effetto di rotazione indipendente durante l'avvitamento
 var cubeSize = 4; // Dimensione del cubo dello skybox (usata per calcolare la posizione minima della navicella e evitare che vada sotto il pavimento dello skybox)
 var floorZ = -cubeSize / 2; //
+// Variabili per lo zoom/zoom pinch
+var cameraDistance = 6; // distanza della camera dietro la navicella (usata in updateProjection)
+var minCameraDistance = 3;
+var maxCameraDistance = 40;
+var zoomStep = 0.5;
+var zoomInterval = null;
+var pinchStartDist = 0;
+var pinchStartCameraDistance = 0;
+var pinchActive = false;
 
 // --- VARIABILI SUPPORTO PER CAMERA LAG ---
 var currentCameraPos = [0, -6, 2]; // Posizione iniziale della telecamera
@@ -362,7 +371,7 @@ function updateProjection() {
   var targetZDirection = Math.cos(fi);
 
   // Nota: Moltiplichiamo la direzione invertita per distanziarci dalla navicella
-  var distanceBehind = 6; 
+  var distanceBehind = cameraDistance; 
   var cameraTargetPos = [
     spaceshipTranslation.x - targetXDirection * distanceBehind,
     spaceshipTranslation.y - targetYDirection * distanceBehind,
@@ -822,6 +831,29 @@ function makeButtonHold(button, startFn, endFn) {
   button.addEventListener('touchend', endFn);
 }
 
+/*=================== ZOOM HANDLERS =================== */
+function setCameraDistance(d) {
+  cameraDistance = Math.max(minCameraDistance, Math.min(maxCameraDistance, d));
+}
+
+function changeCameraDistanceBy(delta) {
+  setCameraDistance(cameraDistance + delta);
+}
+
+function startZoomIn() {
+  if (zoomInterval) clearInterval(zoomInterval);
+  zoomInterval = setInterval(function() { changeCameraDistanceBy(-zoomStep); }, 60);
+}
+
+function startZoomOut() {
+  if (zoomInterval) clearInterval(zoomInterval);
+  zoomInterval = setInterval(function() { changeCameraDistanceBy(zoomStep); }, 60);
+}
+
+function stopZoom() {
+  if (zoomInterval) { clearInterval(zoomInterval); zoomInterval = null; }
+}
+
 function setSkyboxButtonState(selectedButtonId) {
   var skyboxDefault = document.getElementById('btn-skybox-default');
   var skyboxSecond = document.getElementById('btn-skybox-second');
@@ -881,6 +913,8 @@ function initInterface() {
   var btnSkyboxThird = document.getElementById("btn-skybox-third");
   var btnSkyboxFourth = document.getElementById("btn-skybox-fourth");
   var btnLight = document.getElementById("btn-toggle-light");
+  var btnZoomIn = document.getElementById("btn-zoom-in");
+  var btnZoomOut = document.getElementById("btn-zoom-out");
 
   makeButtonHold(btnLeft, function() { if (!animationStarted) play(); moveState.left = true; }, function() { moveState.left = false; });
   makeButtonHold(btnRight, function() { if (!animationStarted) play(); moveState.right = true; }, function() { moveState.right = false; });
@@ -907,6 +941,8 @@ function initInterface() {
   if (btnSkyboxThird) btnSkyboxThird.addEventListener("click", function() { switchSkybox('third'); });
   if (btnSkyboxFourth) btnSkyboxFourth.addEventListener("click", function() { switchSkybox('fourth'); });
   if (btnLight) btnLight.addEventListener('click', toggleLight);
+  if (btnZoomIn) makeButtonHold(btnZoomIn, startZoomIn, stopZoom);
+  if (btnZoomOut) makeButtonHold(btnZoomOut, startZoomOut, stopZoom);
 
   // Listener per i bottoni di apertura/chiusura del pannello dei controlli
   var btnClosePanel = document.getElementById("btn-close-panel");
@@ -967,37 +1003,57 @@ var touches_count = 0;
 canvas.addEventListener("touchstart", function(e) {
   touches_count = e.touches.length;
   if (touches_count >= 2) {
-    // Due o più dita: inizia drag camera
+    // Due o più dita: inizializza sia il drag che il pinch
     drag = true;
     touch_old_x = (e.touches[0].pageX + e.touches[1].pageX) / 2;
     touch_old_y = (e.touches[0].pageY + e.touches[1].pageY) / 2;
+    // distanza iniziale tra i due tocchi (per pinch)
+    var dx = e.touches[0].pageX - e.touches[1].pageX;
+    var dy = e.touches[0].pageY - e.touches[1].pageY;
+    pinchStartDist = Math.sqrt(dx*dx + dy*dy);
+    pinchStartCameraDistance = cameraDistance;
+    pinchActive = false;
     e.preventDefault();
   }
 });
 
 canvas.addEventListener("touchmove", function(e) {
   if (e.touches.length >= 2 && drag) {
+    // calcolo centro e distanza
     var touch_x = (e.touches[0].pageX + e.touches[1].pageX) / 2;
     var touch_y = (e.touches[0].pageY + e.touches[1].pageY) / 2;
+    var dx = e.touches[0].pageX - e.touches[1].pageX;
+    var dy = e.touches[0].pageY - e.touches[1].pageY;
+    var currentDist = Math.sqrt(dx*dx + dy*dy);
+
+    // se la distanza è cambiata sensibilmente consideriamo un pinch (zoom)
+    if (Math.abs(currentDist - pinchStartDist) > 10) {
+      pinchActive = true;
+      // calcolo la nuova distanza della camera in modo proporzionale
+      var newDist = pinchStartCameraDistance * (pinchStartDist / currentDist);
+      setCameraDistance(newDist);
+      e.preventDefault();
+    } else if (!pinchActive) {
+      // altrimenti ruotiamo la visuale come prima
+      var dX = (touch_x - touch_old_x) * 1.5 * Math.PI / canvas.width;
+      var dY = (touch_y - touch_old_y) * 1.5 * Math.PI / canvas.height;
+      teta -= dX;
+      fi += dY;
+      if (fi < 0.05) fi = 0.05;
+      if (fi > Math.PI - 0.05) fi = Math.PI - 0.05;
+      touch_old_x = touch_x;
+      touch_old_y = touch_y;
+      e.preventDefault();
+    }
     
-    var dX = (touch_x - touch_old_x) * 1.5 * Math.PI / canvas.width;
-    var dY = (touch_y - touch_old_y) * 1.5 * Math.PI / canvas.height;
-    
-    teta -= dX;
-    fi += dY;
-    
-    if (fi < 0.05) fi = 0.05;
-    if (fi > Math.PI - 0.05) fi = Math.PI - 0.05;
-    
-    touch_old_x = touch_x;
-    touch_old_y = touch_y;
-    e.preventDefault();
   }
 });
 
 canvas.addEventListener("touchend", function(e) {
   if (e.touches.length < 2) {
     drag = false;
+    pinchStartDist = 0;
+    pinchActive = false;
   }
 });
 
@@ -1021,6 +1077,9 @@ document.addEventListener("keydown", (e) => {
   // Movimento laterale
   if (e.key === "ArrowLeft") moveState.left = true;
   if (e.key === "ArrowRight") moveState.right = true;
+  // Zoom: tasto Z = zoom in, X = zoom out (supporta hold)
+  if (e.key === 'Z' || e.key === 'z') { e.preventDefault(); startZoomIn(); }
+  if (e.key === 'X' || e.key === 'x') { e.preventDefault(); startZoomOut(); }
 });
 
 document.addEventListener("keyup", (e) => {
@@ -1029,6 +1088,8 @@ document.addEventListener("keyup", (e) => {
   // Stop movimento laterale
   if (e.key === "ArrowLeft") moveState.left = false;
   if (e.key === "ArrowRight") moveState.right = false;
+  // stop zoom quando si rilascia il tasto
+  if (e.key === 'Z' || e.key === 'z' || e.key === 'X' || e.key === 'x') stopZoom();
 });
 
 // --- EXECUTION BOOT ---
